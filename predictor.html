@@ -26,14 +26,36 @@
   <body class="bg-slate-950 text-slate-200 min-h-screen font-sans antialiased">
     <div id="app" class="max-w-7xl mx-auto p-3 sm:p-4 space-y-4">
       <!-- Header -->
-      <header class="flex items-center justify-between border-b border-slate-700/60 pb-3">
+      <header class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-700/60 pb-3">
         <h1 class="text-lg font-bold text-white tracking-tight">Digit Match Predictor</h1>
-        <div class="flex items-center gap-3">
-          <span id="ws-status" class="text-xs px-2 py-1 rounded-full bg-slate-800 text-slate-400">Connecting…</span>
-          <label class="flex items-center gap-2 cursor-pointer text-sm text-slate-400">
-            <input type="checkbox" id="auto-play" checked class="rounded border-slate-600 bg-slate-800 text-green-500" />
-            <span>Live</span>
-          </label>
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="flex items-center gap-2 text-xs text-slate-300">
+            <span class="text-slate-500">Symbol</span>
+            <select
+              id="symbol-select"
+              class="bg-slate-900 border border-slate-700 text-xs rounded-md px-2 py-1 text-slate-200 focus:outline-none focus:ring-1 focus:ring-green-500"
+            >
+              <option value="R_10">Volatility 10</option>
+              <option value="R_10S">Volatility 10 (1s)</option>
+              <option value="R_15">Volatility 15</option>
+              <option value="R_25">Volatility 25</option>
+              <option value="R_25S">Volatility 25 (1s)</option>
+              <option value="R_30">Volatility 30 (1s)</option>
+              <option value="R_50">Volatility 50</option>
+              <option value="R_50S">Volatility 50 (1s)</option>
+              <option value="R_75" selected>Volatility 75</option>
+              <option value="R_75S">Volatility 75 (1s)</option>
+              <option value="R_90S">Volatility 90 (1s)</option>
+              <option value="R_100">Volatility 100</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-3">
+            <span id="ws-status" class="text-xs px-2 py-1 rounded-full bg-slate-800 text-slate-400">Connecting…</span>
+            <label class="flex items-center gap-2 cursor-pointer text-sm text-slate-400">
+              <input type="checkbox" id="auto-play" checked class="rounded border-slate-600 bg-slate-800 text-green-500" />
+              <span>Live</span>
+            </label>
+          </div>
         </div>
       </header>
 
@@ -83,10 +105,43 @@
         </div>
       </section>
 
-      <!-- Tick chart (simple line) -->
-      <section class="bg-panel border border-slate-700/60 rounded-xl p-4">
-        <h2 class="text-sm font-semibold text-slate-400 mb-3">Tick history (last 50)</h2>
-        <div id="tick-chart" class="h-32 w-full rounded-lg bg-slate-900/80 flex items-end gap-px px-1 pb-1"></div>
+      <!-- Trade card + Tick chart -->
+      <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Trade card -->
+        <div class="bg-panel border border-slate-700/60 rounded-xl p-4 flex flex-col gap-3">
+          <h2 class="text-sm font-semibold text-slate-200 flex items-center justify-between">
+            Digit Match Trade
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Manual on Deriv</span>
+          </h2>
+          <div class="space-y-2 text-sm">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-500">Symbol</span>
+              <span id="trade-symbol" class="font-mono text-slate-100">Volatility 75 (R_75)</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-500">Contract type</span>
+              <span class="font-mono text-slate-100">Digit Match</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-500">Duration</span>
+              <span id="trade-duration" class="font-mono text-slate-100">1 tick</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-500">Predicted digit</span>
+              <span id="trade-digit" class="text-xl font-mono font-bold text-green-400">—</span>
+            </div>
+          </div>
+          <p class="mt-1 text-[11px] text-slate-500">
+            Use this card to place a matching <span class="text-slate-300">Digit Match</span> trade on Deriv. This app
+            only <span class="text-slate-300">predicts</span>; it does not place trades for you.
+          </p>
+        </div>
+
+        <!-- Tick chart (simple line) -->
+        <div class="bg-panel border border-slate-700/60 rounded-xl p-4 lg:col-span-2">
+          <h2 class="text-sm font-semibold text-slate-400 mb-3">Tick history (last 50)</h2>
+          <div id="tick-chart" class="h-32 w-full rounded-lg bg-slate-900/80 flex items-end gap-px px-1 pb-1"></div>
+        </div>
       </section>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

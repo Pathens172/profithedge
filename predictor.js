@@ -2,7 +2,20 @@
   'use strict';
 
   const WS_URL = 'wss://ws.binaryws.com/websockets/v3?app_id=1089';
-  const SYMBOL = 'R_75';
+  const SYMBOL_LABELS = {
+    R_10: 'Volatility 10',
+    R_10S: 'Volatility 10 (1s)',
+    R_15: 'Volatility 15',
+    R_25: 'Volatility 25',
+    R_25S: 'Volatility 25 (1s)',
+    R_30: 'Volatility 30 (1s)',
+    R_50: 'Volatility 50',
+    R_50S: 'Volatility 50 (1s)',
+    R_75: 'Volatility 75',
+    R_75S: 'Volatility 75 (1s)',
+    R_90S: 'Volatility 90 (1s)',
+    R_100: 'Volatility 100',
+  };
   const TICK_HISTORY_SIZE = 100;
   const DISPLAY_TICKS = 50;
   const PREDICTION_INTERVAL_MS = 15000;
@@ -113,14 +126,16 @@
     el.className = 'text-xs px-2 py-1 rounded-full ' + (ok ? 'bg-green-900/50 text-green-400' : 'bg-slate-800 text-slate-400');
   }
 
+  let currentSymbol = 'R_75';
+
   function connect() {
     if (ws && ws.readyState === WebSocket.OPEN) return;
     updateWsStatus('Connecting…', false);
     ws = new WebSocket(WS_URL);
 
     ws.onopen = () => {
-      updateWsStatus('Connected', true);
-      ws.send(JSON.stringify({ ticks: SYMBOL, subscribe: 1 }));
+      updateWsStatus(`Connected (${currentSymbol})`, true);
+      ws.send(JSON.stringify({ ticks: currentSymbol, subscribe: 1 }));
     };
 
     ws.onmessage = (event) => {
@@ -250,6 +265,8 @@
     if (ticks.length < 20) {
       $('pred-digit').textContent = '—';
       $('pred-confidence').textContent = 'Confidence: —%';
+      const td = $('trade-digit');
+      if (td) td.textContent = '—';
       return;
     }
 
@@ -336,6 +353,8 @@
 
     $('pred-digit').textContent = best;
     $('pred-confidence').textContent = `Confidence: ${confidence}%`;
+    const td = $('trade-digit');
+    if (td) td.textContent = String(best);
 
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -376,6 +395,28 @@
     connect();
     updateWinRate();
     updatePredictionsLog();
+
+    const symSelect = $('symbol-select');
+    if (symSelect) {
+      symSelect.value = currentSymbol;
+      const ts = $('trade-symbol');
+      if (ts) ts.textContent = `${SYMBOL_LABELS[currentSymbol] || currentSymbol} (${currentSymbol})`;
+
+      symSelect.addEventListener('change', (e) => {
+        currentSymbol = e.target.value;
+        ticks = [];
+        updateTickChart();
+        updateTickList();
+        updateDigitHeatmap();
+        if (ws) {
+          ws.close();
+          ws = null;
+        }
+        const ts2 = $('trade-symbol');
+        if (ts2) ts2.textContent = `${SYMBOL_LABELS[currentSymbol] || currentSymbol} (${currentSymbol})`;
+        connect();
+      });
+    }
 
     $('auto-play').addEventListener('change', (e) => {
       isLive = e.target.checked;

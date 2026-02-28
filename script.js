@@ -37,7 +37,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // For now we just treat any email/password as a valid login.
     markLoggedIn();
     loginModal.hidden = true;
-    alert("Signed in successfully. You can now get access.");
+    // Go straight to the dashboard after sign in so the user
+    // does not have to click again.
+    window.location.href = "dashboard.html";
   });
 
   accessForm.addEventListener("submit", (e) => {
