@@ -49,15 +49,16 @@
     } catch (_) {}
   }
 
-  // Extract last digit exactly as Deriv displays it,
-  // from the raw quote string (so decimals always match).
   function lastDigitFromQuote(raw) {
     const s = String(raw).trim();
     for (let i = s.length - 1; i >= 0; i--) {
       const c = s[i];
       if (c >= '0' && c <= '9') return Number(c);
     }
-    return 0;
+    // Extremely rare fallback: if we somehow don't find a digit,
+    // return a neutral random digit instead of always 0 so that
+    // zero is never treated as the default.
+    return Math.floor(Math.random() * 10);
   }
 
   // --- Technical indicators ---
