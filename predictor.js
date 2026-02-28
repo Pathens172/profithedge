@@ -49,12 +49,15 @@
     } catch (_) {}
   }
 
-  function lastDigitFromQuote(quote) {
-    if (typeof quote !== 'number' || !Number.isFinite(quote)) return 0;
-    // Deriv digit contracts use the last digit of the
-    // price at 2 decimal places, so take the price * 100.
-    const scaled = Math.round(quote * 100);
-    return Math.abs(scaled % 10);
+  // Extract last digit exactly as Deriv displays it,
+  // from the raw quote string (so decimals always match).
+  function lastDigitFromQuote(raw) {
+    const s = String(raw).trim();
+    for (let i = s.length - 1; i >= 0; i--) {
+      const c = s[i];
+      if (c >= '0' && c <= '9') return Number(c);
+    }
+    return 0;
   }
 
   // --- Technical indicators ---
@@ -146,14 +149,18 @@
       try {
         const msg = JSON.parse(event.data);
         if (msg.tick) {
-          const quote = typeof msg.tick.quote === 'number' ? msg.tick.quote : parseFloat(msg.tick.quote);
+          const rawQuote =
+            typeof msg.tick.quote === 'string'
+              ? msg.tick.quote
+              : String(msg.tick.quote);
+          const quote = parseFloat(rawQuote);
           const epoch = msg.tick.epoch || Date.now() / 1000;
           if (!Number.isFinite(quote)) return;
-          const digit = lastDigitFromQuote(quote);
-          ticks.push({ quote, epoch, digit });
+          const digit = lastDigitFromQuote(rawQuote);
+          ticks.push({ quote, raw: rawQuote, epoch, digit });
           if (ticks.length > TICK_HISTORY_SIZE) ticks.shift();
 
-          updateLiveTick(quote, digit);
+          updateLiveTick(rawQuote, digit);
           updateTickChart();
           updateTickList();
           updateDigitHeatmap();
@@ -190,10 +197,10 @@
     };
   }
 
-  function updateLiveTick(quote, digit) {
+  function updateLiveTick(rawQuote, digit) {
     const q = $('live-quote');
     const d = $('live-digit');
-    if (q) q.textContent = Number(quote).toFixed(5);
+    if (q) q.textContent = rawQuote;
     if (d) d.textContent = digit;
   }
 
@@ -279,6 +286,7 @@
 
     const prob = Array(10).fill(1e-6);
 
+    // Core logic: weighted recent digit frequency + simple hot/cold pattern boosts.
     const n20 = digits.slice(-20);
     const n50 = digits.slice(-50);
     const n100 = digits.slice(-100);
@@ -287,54 +295,30 @@
       const w20 = n20.filter((x) => x === d).length / 20;
       const w50 = n50.filter((x) => x === d).length / 50;
       const w100 = n100.filter((x) => x === d).length / Math.max(n100.length, 1);
-      prob[d] += 0.5 * w20 + 0.3 * w50 + 0.2 * w100;
+      prob[d] += 0.6 * w20 + 0.3 * w50 + 0.1 * w100;
     }
 
+    // Hot streak: heavily boost digits that are showing up repeatedly very recently.
     const last10 = digits.slice(-HOT_STREAK_WINDOW);
     for (let d = 0; d <= 9; d++) {
       const count = last10.filter((x) => x === d).length;
-      if (count >= HOT_STREAK_COUNT) prob[d] *= 1.2;
+      if (count >= HOT_STREAK_COUNT) prob[d] *= 1.3;
     }
 
-    const coldTicks = 15;
+    // Mean reversion: lightly boost digits that have been absent for many ticks.
     for (let d = 0; d <= 9; d++) {
-      let lastSeen = -coldTicks - 1;
+      let lastSeen = -1;
       for (let i = digits.length - 1; i >= 0; i--) {
         if (digits[i] === d) {
           lastSeen = i;
           break;
         }
       }
-      const dist = digits.length - 1 - lastSeen;
-      if (dist >= COLD_THRESHOLD) prob[d] *= 1.15;
-    }
-
-    const rsiVal = rsi(closes);
-    if (rsiVal !== null) {
-      const digitBias = (rsiVal / 100) * 9;
-      for (let d = 0; d <= 9; d++) {
-        const dist = Math.abs(d - digitBias);
-        prob[d] += 0.05 * (1 - dist / 9);
-      }
-    }
-
-    const macdVal = macd(closes);
-    if (macdVal !== null) {
-      const side = macdVal.histogram > 0 ? 1 : -1;
-      for (let d = 0; d <= 9; d++) {
-        prob[d] += 0.02 * (side * (d >= 5 ? 1 : -1));
-        if (macdVal.histogram > 0) prob[d] += d >= 5 ? 0.02 : 0;
-        else prob[d] += d < 5 ? 0.02 : 0;
-      }
-    }
-
-    const highs = closes.map((c) => c);
-    const lows = closes.map((c) => c);
-    const stochVal = stochastic(highs, lows, closes);
-    if (stochVal !== null) {
-      const digitBias = (stochVal.k / 100) * 9;
-      for (let d = 0; d <= 9; d++) {
-        prob[d] += 0.03 * (1 - Math.abs(d - digitBias) / 9);
+      if (lastSeen === -1) {
+        prob[d] *= 1.1;
+      } else {
+        const dist = digits.length - 1 - lastSeen;
+        if (dist >= COLD_THRESHOLD) prob[d] *= 1.1;
       }
     }
 
@@ -350,7 +334,11 @@
       }
     }
 
-    const confidence = Math.min(100, Math.round(bestP * 100 * 2.5));
+    // Confidence based on how dominant the best digit is vs others.
+    const sorted = [...prob].sort((a, b) => b - a);
+    const second = sorted[1] || 0;
+    const dominance = bestP - second;
+    const confidence = Math.min(100, Math.round((bestP + dominance) * 100));
 
     lastPrediction = best;
     lastPredictionTime = Date.now();
