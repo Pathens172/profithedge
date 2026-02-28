@@ -1,19 +1,21 @@
 (function () {
   'use strict';
 
-  const WS_URL = 'wss://ws.binaryws.com/websockets/v3?app_id=1089';
+  // Use official Deriv WebSocket endpoint so prices
+  // match the Deriv platforms exactly.
+  const WS_URL = 'wss://ws.derivws.com/websockets/v3?app_id=1089';
   const SYMBOL_LABELS = {
     R_10: 'Volatility 10',
-    R_10S: 'Volatility 10 (1s)',
-    R_15: 'Volatility 15',
+    R_10_1S: 'Volatility 10 (1s)',
+    R_15_1S: 'Volatility 15 (1s)',
     R_25: 'Volatility 25',
-    R_25S: 'Volatility 25 (1s)',
-    R_30: 'Volatility 30 (1s)',
+    R_25_1S: 'Volatility 25 (1s)',
+    R_30_1S: 'Volatility 30 (1s)',
     R_50: 'Volatility 50',
-    R_50S: 'Volatility 50 (1s)',
+    R_50_1S: 'Volatility 50 (1s)',
     R_75: 'Volatility 75',
-    R_75S: 'Volatility 75 (1s)',
-    R_90S: 'Volatility 90 (1s)',
+    R_75_1S: 'Volatility 75 (1s)',
+    R_90_1S: 'Volatility 90 (1s)',
     R_100: 'Volatility 100',
   };
   const TICK_HISTORY_SIZE = 100;
@@ -49,7 +51,9 @@
 
   function lastDigitFromQuote(quote) {
     if (typeof quote !== 'number' || !Number.isFinite(quote)) return 0;
-    const scaled = Math.floor(quote * 100000);
+    // Deriv digit contracts use the last digit of the
+    // price at 2 decimal places, so take the price * 100.
+    const scaled = Math.round(quote * 100);
     return Math.abs(scaled % 10);
   }
 
