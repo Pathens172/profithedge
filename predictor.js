@@ -149,6 +149,7 @@
       try {
         const msg = JSON.parse(event.data);
         if (msg.tick) {
+          if (msg.tick.symbol && msg.tick.symbol !== currentSymbol) return;
           const rawQuote = msg.tick.quote;
           const quoteNum = typeof rawQuote === 'number' ? rawQuote : parseFloat(rawQuote);
           const epoch = msg.tick.epoch || Date.now() / 1000;
@@ -404,6 +405,7 @@
       if (ts) ts.textContent = `${SYMBOL_LABELS[currentSymbol] || currentSymbol} (${currentSymbol})`;
 
       symSelect.addEventListener('change', (e) => {
+        const oldSymbol = currentSymbol;
         currentSymbol = e.target.value;
         ticks = [];
         updateTickChart();
@@ -414,13 +416,14 @@
           clearTimeout(reconnectTimer);
           reconnectTimer = null;
         }
-        if (ws) {
-          ws.close();
-          ws = null;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ ticks: oldSymbol, subscribe: 0 }));
+          ws.send(JSON.stringify({ ticks: currentSymbol, subscribe: 1 }));
+        } else {
+          connect();
         }
         const ts2 = $('trade-symbol');
         if (ts2) ts2.textContent = `${SYMBOL_LABELS[currentSymbol] || currentSymbol} (${currentSymbol})`;
-        connect();
       });
     }
 
