@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Digit Match Predictor | Profithedge</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              panel: '#0f172a',
+              border: '#334155',
+              green: '#22c55e',
+              red: '#ef4444',
+              muted: '#94a3b8',
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="predictor.css" />
+  </head>
+  <body class="bg-slate-950 text-slate-200 min-h-screen font-sans antialiased">
+    <div id="app" class="max-w-7xl mx-auto p-3 sm:p-4 space-y-4">
+      <!-- Header -->
+      <header class="flex items-center justify-between border-b border-slate-700/60 pb-3">
+        <h1 class="text-lg font-bold text-white tracking-tight">Digit Match Predictor</h1>
+        <div class="flex items-center gap-3">
+          <span id="ws-status" class="text-xs px-2 py-1 rounded-full bg-slate-800 text-slate-400">Connecting…</span>
+          <label class="flex items-center gap-2 cursor-pointer text-sm text-slate-400">
+            <input type="checkbox" id="auto-play" checked class="rounded border-slate-600 bg-slate-800 text-green-500" />
+            <span>Live</span>
+          </label>
+        </div>
+      </header>
+
+      <!-- Main: Live tick + Prediction + Timer -->
+      <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Live tick & last digit -->
+        <div class="bg-panel border border-slate-700/60 rounded-xl p-4 flex flex-col items-center justify-center min-h-[120px]">
+          <p class="text-slate-500 text-sm mb-1">Live tick</p>
+          <p id="live-quote" class="text-2xl font-mono font-bold text-white">—</p>
+          <p class="text-slate-500 text-sm mt-2">Last digit</p>
+          <p id="live-digit" class="text-3xl font-mono font-bold text-green-400">—</p>
+        </div>
+
+        <!-- Prediction + Confidence -->
+        <div class="bg-panel border border-slate-700/60 rounded-xl p-4 flex flex-col items-center justify-center min-h-[120px]">
+          <p class="text-slate-500 text-sm mb-1">Predicted digit</p>
+          <p id="pred-digit" class="text-5xl font-mono font-bold text-green-400">—</p>
+          <p id="pred-confidence" class="text-slate-400 text-sm mt-2">Confidence: —%</p>
+        </div>
+
+        <!-- 15s countdown circle -->
+        <div class="bg-panel border border-slate-700/60 rounded-xl p-4 flex flex-col items-center justify-center min-h-[120px]">
+          <p class="text-slate-500 text-sm mb-2">Next prediction in</p>
+          <div class="relative w-16 h-16 flex items-center justify-center">
+            <svg class="w-16 h-16 -rotate-90" viewBox="0 0 36 36">
+              <path
+                class="text-slate-700"
+                stroke="currentColor"
+                strokeWidth="2"
+                fill="none"
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              />
+              <path
+                id="timer-arc"
+                class="text-green-500 transition-all duration-1000 ease-linear"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                fill="none"
+                strokeDasharray="100"
+                strokeDashoffset="100"
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              />
+            </svg>
+            <span id="timer-sec" class="absolute text-lg font-mono font-bold text-white">15</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tick chart (simple line) -->
+      <section class="bg-panel border border-slate-700/60 rounded-xl p-4">
+        <h2 class="text-sm font-semibold text-slate-400 mb-3">Tick history (last 50)</h2>
+        <div id="tick-chart" class="h-32 w-full rounded-lg bg-slate-900/80 flex items-end gap-px px-1 pb-1"></div>
+      </section>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Digit frequency heatmap 0-9 -->
+        <section class="bg-panel border border-slate-700/60 rounded-xl p-4">
+          <h2 class="text-sm font-semibold text-slate-400 mb-3">Digit frequency (last 100)</h2>
+          <div id="digit-heatmap" class="grid grid-cols-5 gap-2"></div>
+        </section>
+
+        <!-- Stats + Recent predictions log -->
+        <section class="bg-panel border border-slate-700/60 rounded-xl p-4">
+          <h2 class="text-sm font-semibold text-slate-400 mb-3">Stats & recent predictions</h2>
+          <div class="flex flex-wrap gap-4 mb-3 text-sm">
+            <div>
+              <span class="text-slate-500">Wins / Total</span>
+              <p id="win-rate" class="font-mono text-white">0 / 0</p>
+            </div>
+            <div>
+              <span class="text-slate-500">Win rate</span>
+              <p id="win-rate-pct" class="font-mono text-green-400">0%</p>
+            </div>
+          </div>
+          <div id="predictions-log" class="max-h-40 overflow-y-auto space-y-1 text-xs font-mono text-slate-500"></div>
+        </section>
+      </div>
+
+      <!-- Live tick list (last 50) -->
+      <section class="bg-panel border border-slate-700/60 rounded-xl p-4">
+        <h2 class="text-sm font-semibold text-slate-400 mb-3">Last 50 ticks (newest first)</h2>
+        <div id="tick-list" class="flex flex-wrap gap-1 max-h-24 overflow-y-auto"></div>
+      </section>
+    </div>
+
+    <script src="predictor.js"></script>
+  </body>
+</html>

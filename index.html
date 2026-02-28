@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Profithedge - AI Trading Platform</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="script.js"></script>
+  </head>
+  <body>
+    <div class="page">
+      <header class="header">
+        <div class="logo">Profithedge</div>
+        <nav class="nav">
+          <a href="#platform" class="nav-link">Trading Platform</a>
+        </nav>
+      </header>
+
+      <main class="main">
+        <section id="platform" class="hero">
+          <div class="hero-card">
+            <h1 class="hero-title">Profithedge</h1>
+            <p class="hero-subtitle">Professional AI Trading Platform</p>
+
+            <form class="access-form" id="access-form">
+              <label class="checkbox-row">
+                <input type="checkbox" required />
+                <span>I agree to the Terms &amp; Privacy</span>
+              </label>
+
+              <div class="actions">
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  id="sign-in-btn"
+                >
+                  Sign In
+                </button>
+                <button
+                  type="submit"
+                  class="btn btn-primary"
+                  id="get-access-btn"
+                  disabled
+                >
+                  <span class="price">$80</span>
+                  <span>Get Access</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <p>© 2026 Profithedge</p>
+      </footer>
+    </div>
+
+    <!-- Simple login dialog -->
+    <div class="modal-backdrop" id="login-modal" hidden>
+      <div class="modal">
+        <h2 class="modal-title">Sign In</h2>
+        <form id="login-form" class="modal-form">
+          <label class="field">
+            <span>Email</span>
+            <input type="email" id="login-email" required />
+          </label>
+          <label class="field">
+            <span>Password</span>
+            <input type="password" id="login-password" required />
+          </label>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="close-login">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-primary">Sign In</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </body>
+</html>
+

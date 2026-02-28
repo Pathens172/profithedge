@@ -1,0 +1,25 @@
+/* Digit Match Predictor - extra styles */
+#timer-arc {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+}
+
+.digit-cell {
+  transition: background-color 0.2s, transform 0.1s;
+}
+.digit-cell:active {
+  transform: scale(0.98);
+}
+
+.tick-bar {
+  min-width: 2px;
+  border-radius: 1px;
+  transition: height 0.2s;
+}
+
+/* Ensure mobile tap targets */
+@media (max-width: 640px) {
+  #app {
+    padding: 0.75rem;
+  }
+}
