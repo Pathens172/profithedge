@@ -53,12 +53,12 @@
     const s = String(raw).trim();
     for (let i = s.length - 1; i >= 0; i--) {
       const c = s[i];
-      if (c >= '0' && c <= '9') return Number(c);
+      if (c >= '0' && c <= '9') return Number(c); // 0–9, all valid
     }
-    // Extremely rare fallback: if we somehow don't find a digit,
-    // return a neutral random digit instead of always 0 so that
-    // zero is never treated as the default.
-    return Math.floor(Math.random() * 10);
+    // If, for some reason, we can't find any digit, signal “no digit”
+    // instead of defaulting to 0. This way digit 0 is never treated
+    // as a special or default value.
+    return null;
   }
 
   // --- Technical indicators ---
@@ -158,6 +158,7 @@
           const epoch = msg.tick.epoch || Date.now() / 1000;
           if (!Number.isFinite(quote)) return;
           const digit = lastDigitFromQuote(rawQuote);
+          if (digit === null) return;
           ticks.push({ quote, raw: rawQuote, epoch, digit });
           if (ticks.length > TICK_HISTORY_SIZE) ticks.shift();
 
