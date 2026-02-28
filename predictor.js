@@ -163,13 +163,20 @@
           updateTickList();
           updateDigitHeatmap();
 
-          if (lastPrediction !== null && lastPredictionTime > 0) {
+          // Only settle on the first tick *after* 15 seconds since prediction.
+          // That matches when a 15s Digit Match contract would expire.
+          const now = Date.now();
+          if (
+            lastPrediction !== null &&
+            lastPredictionTime > 0 &&
+            now >= lastPredictionTime + PREDICTION_INTERVAL_MS
+          ) {
             const stats = getStoredStats();
             stats.total += 1;
             if (digit === lastPrediction) stats.wins += 1;
             stats.log = (stats.log || []).slice(-99);
             stats.log.push({
-              t: Date.now(),
+              t: now,
               pred: lastPrediction,
               actual: digit,
               win: digit === lastPrediction,
@@ -271,7 +278,7 @@
   }
 
   function runPrediction() {
-    if (ticks.length < 20) {
+    if (ticks.length < 25) {
       $('pred-digit').textContent = '—';
       $('pred-confidence').textContent = 'Confidence: —%';
       const td = $('trade-digit');
@@ -279,48 +286,54 @@
       return;
     }
 
-    const closes = ticks.map((t) => t.quote);
     const digits = ticks.map((t) => t.digit);
+    const lastDigit = digits[digits.length - 1];
+    const prob = Array(10).fill(1e-9);
 
-    const prob = Array(10).fill(1e-6);
-
-    // Core logic: weighted recent digit frequency + simple hot/cold pattern boosts.
-    const n20 = digits.slice(-20);
-    const n50 = digits.slice(-50);
-    const n100 = digits.slice(-100);
-
+    // 1) Weighted frequency: very recent counts most (last 5, 15, 30, 60)
+    const n5 = digits.slice(-5);
+    const n15 = digits.slice(-15);
+    const n30 = digits.slice(-30);
+    const n60 = digits.slice(-60);
     for (let d = 0; d <= 9; d++) {
-      const w20 = n20.filter((x) => x === d).length / 20;
-      const w50 = n50.filter((x) => x === d).length / 50;
-      const w100 = n100.filter((x) => x === d).length / Math.max(n100.length, 1);
-      prob[d] += 0.6 * w20 + 0.3 * w50 + 0.1 * w100;
+      const f5 = n5.filter((x) => x === d).length / 5;
+      const f15 = n15.filter((x) => x === d).length / 15;
+      const f30 = n30.filter((x) => x === d).length / 30;
+      const f60 = n60.filter((x) => x === d).length / Math.max(n60.length, 1);
+      prob[d] += 0.45 * f5 + 0.30 * f15 + 0.15 * f30 + 0.10 * f60;
     }
 
-    // Hot streak: heavily boost digits that are showing up repeatedly very recently.
-    const last10 = digits.slice(-HOT_STREAK_WINDOW);
+    // 2) Markov: P(next digit | last digit) from last 50 transitions
+    const transitions = [];
+    for (let i = 0; i < digits.length - 1; i++) transitions.push({ from: digits[i], to: digits[i + 1] });
+    const last50 = transitions.slice(-50);
+    const followCount = Array(10).fill(0);
+    last50.forEach((tr) => {
+      if (tr.from === lastDigit) followCount[tr.to]++;
+    });
+    const followSum = followCount.reduce((a, b) => a + b, 0) || 1;
+    for (let d = 0; d <= 9; d++) prob[d] += 0.25 * (followCount[d] / followSum);
+
+    // 3) Hot digits: appeared 2+ times in last 8 ticks
+    const last8 = digits.slice(-8);
     for (let d = 0; d <= 9; d++) {
-      const count = last10.filter((x) => x === d).length;
-      if (count >= HOT_STREAK_COUNT) prob[d] *= 1.3;
+      if (last8.filter((x) => x === d).length >= 2) prob[d] *= 1.15;
     }
 
-    // Mean reversion: lightly boost digits that have been absent for many ticks.
+    // 4) Cold / mean reversion: digit absent 12+ ticks gets small boost
     for (let d = 0; d <= 9; d++) {
-      let lastSeen = -1;
+      let idx = -1;
       for (let i = digits.length - 1; i >= 0; i--) {
         if (digits[i] === d) {
-          lastSeen = i;
+          idx = i;
           break;
         }
       }
-      if (lastSeen === -1) {
-        prob[d] *= 1.1;
-      } else {
-        const dist = digits.length - 1 - lastSeen;
-        if (dist >= COLD_THRESHOLD) prob[d] *= 1.1;
-      }
+      const dist = idx >= 0 ? digits.length - 1 - idx : 999;
+      if (dist >= 12) prob[d] *= 1.08;
     }
 
-    const sum = prob.reduce((a, b) => a + b, 0);
+    const sum = prob.reduce((a, b) => a + b, 0) || 1;
     for (let d = 0; d <= 9; d++) prob[d] = prob[d] / sum;
 
     let best = 0;
@@ -332,11 +345,9 @@
       }
     }
 
-    // Confidence based on how dominant the best digit is vs others.
     const sorted = [...prob].sort((a, b) => b - a);
     const second = sorted[1] || 0;
-    const dominance = bestP - second;
-    const confidence = Math.min(100, Math.round((bestP + dominance) * 100));
+    const confidence = Math.min(100, Math.round((bestP + (bestP - second)) * 100));
 
     lastPrediction = best;
     lastPredictionTime = Date.now();
@@ -398,6 +409,11 @@
         updateTickChart();
         updateTickList();
         updateDigitHeatmap();
+        updateLiveTick('—', '—');
+        if (reconnectTimer) {
+          clearTimeout(reconnectTimer);
+          reconnectTimer = null;
+        }
         if (ws) {
           ws.close();
           ws = null;
@@ -417,6 +433,15 @@
         if (reconnectTimer) clearTimeout(reconnectTimer);
       }
     });
+
+    const resetBtn = $('reset-stats');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        saveStats({ wins: 0, total: 0, log: [] });
+        updateWinRate();
+        updatePredictionsLog();
+      });
+    }
 
     setTimeout(() => {
       startCountdown();
