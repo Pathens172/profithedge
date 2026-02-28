@@ -18,21 +18,6 @@
     R_90_1S: 'Volatility 90 (1s)',
     R_100: 'Volatility 100',
   };
-  // All these volatility indices use 2 decimal places on Deriv.
-  const SYMBOL_DECIMALS = {
-    R_10: 2,
-    R_10_1S: 2,
-    R_15_1S: 2,
-    R_25: 2,
-    R_25_1S: 2,
-    R_30_1S: 2,
-    R_50: 2,
-    R_50_1S: 2,
-    R_75: 2,
-    R_75_1S: 2,
-    R_90_1S: 2,
-    R_100: 2,
-  };
   const TICK_HISTORY_SIZE = 100;
   const DISPLAY_TICKS = 50;
   const PREDICTION_INTERVAL_MS = 15000;
@@ -64,12 +49,15 @@
     } catch (_) {}
   }
 
-  function lastDigitFromQuote(quote, decimals) {
-    if (!Number.isFinite(quote)) return null;
-    const scale = Math.pow(10, decimals);
-    const scaled = Math.round(quote * scale);
-    const d = Math.abs(scaled % 10);
-    return d; // 0–9, all valid (including 0)
+  // Extract last digit from the raw quote - no rounding, no scaling.
+  // Deriv sends the exact price string; we use it verbatim so decimals stay identical.
+  function lastDigitFromRawQuote(rawQuote) {
+    const s = String(rawQuote).trim();
+    for (let i = s.length - 1; i >= 0; i--) {
+      const c = s[i];
+      if (c >= '0' && c <= '9') return Number(c); // 0–9, including 0
+    }
+    return null;
   }
 
   // --- Technical indicators ---
@@ -161,19 +149,16 @@
       try {
         const msg = JSON.parse(event.data);
         if (msg.tick) {
-          const quote =
-            typeof msg.tick.quote === 'number'
-              ? msg.tick.quote
-              : parseFloat(msg.tick.quote);
+          const rawQuote = msg.tick.quote;
+          const quoteNum = typeof rawQuote === 'number' ? rawQuote : parseFloat(rawQuote);
           const epoch = msg.tick.epoch || Date.now() / 1000;
-          if (!Number.isFinite(quote)) return;
-          const decimals = SYMBOL_DECIMALS[currentSymbol] || 2;
-          const digit = lastDigitFromQuote(quote, decimals);
+          if (!Number.isFinite(quoteNum)) return;
+          const digit = lastDigitFromRawQuote(rawQuote);
           if (digit === null) return;
-          ticks.push({ quote, epoch, digit });
+          ticks.push({ quote: quoteNum, rawQuote: rawQuote, epoch, digit });
           if (ticks.length > TICK_HISTORY_SIZE) ticks.shift();
 
-          updateLiveTick(quote, digit, decimals);
+          updateLiveTick(rawQuote, digit);
           updateTickChart();
           updateTickList();
           updateDigitHeatmap();
@@ -210,10 +195,10 @@
     };
   }
 
-  function updateLiveTick(quote, digit, decimals) {
+  function updateLiveTick(rawQuote, digit) {
     const q = $('live-quote');
     const d = $('live-digit');
-    if (q) q.textContent = Number(quote).toFixed(decimals);
+    if (q) q.textContent = rawQuote;
     if (d) d.textContent = digit;
   }
 
